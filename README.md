@@ -1,5 +1,18 @@
 # FlowFunds — Intelligent Budget & Spending Companion
 
+<div align="center">
+
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Active-brightgreen)](https://3000-i9c84392j0m21qxxit1lj-6532622b.e2b.dev)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue)](https://github.com/Rithvik09/FlowFunds)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Hono](https://img.shields.io/badge/Hono-4.0-orange)](https://hono.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+[![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-orange)](https://workers.cloudflare.com/)
+
+💰 **A polished, portfolio-ready MVP for intelligent budget and spending management**
+
+</div>
+
 ## Project Overview
 - **Name**: FlowFunds  
 - **Goal**: A polished, portfolio-ready MVP that connects to real bank accounts, tracks spending, forecasts end-of-month balances, and delivers proactive, human-centric nudges
@@ -8,7 +21,7 @@
 ## URLs
 - **Production**: https://3000-i9c84392j0m21qxxit1lj-6532622b.e2b.dev
 - **API Health**: https://3000-i9c84392j0m21qxxit1lj-6532622b.e2b.dev/api/health
-- **GitHub**: Ready for repository setup
+- **GitHub**: https://github.com/Rithvik09/FlowFunds
 
 ## Data Architecture
 - **Data Models**: Users, Transactions, Budgets, Bank Accounts
