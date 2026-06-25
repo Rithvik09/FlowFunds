@@ -1,6 +1,8 @@
 {
   "name": "flowfunds",
   "version": "1.0.0",
+  "license": "UNLICENSED",
+  "private": true,
   "description": "FlowFunds - Intelligent Budget & Spending Companion",
   "main": "src/index.tsx",
   "scripts": {

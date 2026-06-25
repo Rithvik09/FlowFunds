@@ -3,7 +3,6 @@
 <div align="center">
 
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-blue)](https://github.com/Rithvik09/FlowFunds)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Hono](https://img.shields.io/badge/Hono-4.0-orange)](https://hono.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 [![Cloudflare](https://img.shields.io/badge/Cloudflare-Pages-orange)](https://pages.cloudflare.com/)
@@ -23,7 +22,7 @@ FlowFunds is a full-stack web application built as a single [Hono](https://hono.
 | | |
 |---|---|
 | **Repository** | [github.com/Rithvik09/FlowFunds](https://github.com/Rithvik09/FlowFunds) |
-| **License** | [MIT](LICENSE) |
+| **License** | Proprietary — all rights reserved |
 | **Runtime** | Cloudflare Workers / Pages (via Wrangler) |
 | **Language** | TypeScript |
 
@@ -349,6 +348,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for fork/branch workflow, code style expe
 
 ---
 
-## License
+## Copyright
 
-Copyright (c) 2024 FlowFunds. Released under the [MIT License](LICENSE).
+Copyright (c) 2024 FlowFunds. All rights reserved.
+
+This software is proprietary. You may not use, copy, modify, merge, publish, distribute, sublicense, or sell copies of this software without prior written permission from the copyright holder.

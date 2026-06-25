@@ -123,8 +123,9 @@ Include:
 ### Enforcement
 Violations may result in temporary or permanent bans from the project.
 
-## License
-By contributing, you agree that your contributions will be licensed under the MIT License.
+## Copyright
+
+This project is proprietary. By contributing, you grant the copyright holder a perpetual, worldwide, royalty-free license to use, modify, and incorporate your contributions into this project without obligation to you.
 
 ## Questions?
 Feel free to open an issue for questions about contributing!
