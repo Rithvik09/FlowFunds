@@ -7,7 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 [![Cloudflare](https://img.shields.io/badge/Cloudflare-Pages-orange)](https://pages.cloudflare.com/)
 
-**A MVP for budget and spending management — with mock banking data and a path to real integrations**
+**An MVP for budget and spending management — with mock banking data and a path to real integrations**
 
 </div>
 
