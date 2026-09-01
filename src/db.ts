@@ -1,5 +1,6 @@
 import type { BudgetRow, PlaidItemRow, TransactionRow, UserRow } from './types';
 import type { PlaidTransaction } from './plaid';
+import { forecastMonthEndSpend } from './forecast';
 
 export function getUserByEmail(db: D1Database, email: string): Promise<UserRow | null> {
   return db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first<UserRow>();
@@ -30,12 +31,25 @@ export async function listTransactions(db: D1Database, userId: string): Promise<
 export interface BudgetWithSpend extends BudgetRow {
   spent: number;
   remaining: number;
+  // Forecast fields — see forecast.ts. Computed at query time from `spent`,
+  // so they're always consistent with whatever's actually in `transactions`.
+  projectedSpend: number;
+  projectedRemaining: number;
+  onPaceToExceed: boolean;
 }
 
 // "spent" is computed from real transaction rows at query time, in the same billing
 // period (current calendar month) — this is the piece that used to be a hardcoded
 // number in the mock dashboard and now reflects whatever's actually in `transactions`.
-export async function listBudgetsWithSpend(db: D1Database, userId: string): Promise<BudgetWithSpend[]> {
+//
+// `today` is injectable (defaults to `new Date()`) purely so this stays testable
+// without mocking the system clock — the D1 query itself still uses SQLite's `now`
+// for the month-scoping, so this only controls the forecast math below it.
+export async function listBudgetsWithSpend(
+  db: D1Database,
+  userId: string,
+  today: Date = new Date(),
+): Promise<BudgetWithSpend[]> {
   const result = await db
     .prepare(
       `SELECT
@@ -52,11 +66,17 @@ export async function listBudgetsWithSpend(db: D1Database, userId: string): Prom
     .bind(userId)
     .all<BudgetRow & { spent: number }>();
 
-  return result.results.map((row) => ({
-    ...row,
-    spent: row.spent,
-    remaining: row.monthly_limit - row.spent,
-  }));
+  return result.results.map((row) => {
+    const forecast = forecastMonthEndSpend(row.spent, row.monthly_limit, today);
+    return {
+      ...row,
+      spent: row.spent,
+      remaining: row.monthly_limit - row.spent,
+      projectedSpend: forecast.projectedSpend,
+      projectedRemaining: forecast.projectedRemaining,
+      onPaceToExceed: forecast.onPaceToExceed,
+    };
+  });
 }
 
 export async function upsertPlaidItem(

@@ -400,10 +400,16 @@ app.get('/', (c) => {
                 el.innerHTML = budgets.map(function (b) {
                     const pct = Math.min(100, Math.round((b.spent / b.monthly_limit) * 100));
                     const color = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-yellow-500' : 'bg-green-500';
+                    const alert = b.onPaceToExceed
+                        ? '<div class="text-xs text-red-600 mt-1"><i class="fas fa-triangle-exclamation mr-1"></i>' +
+                          'On pace for $' + b.projectedSpend.toFixed(2) + ' by month end — ' +
+                          '$' + Math.abs(b.projectedRemaining).toFixed(2) + ' over budget</div>'
+                        : '<div class="text-xs text-gray-500 mt-1">Projected month-end: $' + b.projectedSpend.toFixed(2) + '</div>';
                     return '<div><div class="flex justify-between mb-2">' +
                         '<span class="font-semibold">' + b.name + '</span>' +
                         '<span class="text-sm text-gray-600">$' + b.spent.toFixed(2) + ' / $' + b.monthly_limit.toFixed(2) + '</span></div>' +
-                        '<div class="w-full bg-gray-200 rounded-full h-3"><div class="' + color + ' h-3 rounded-full" style="width: ' + pct + '%"></div></div></div>';
+                        '<div class="w-full bg-gray-200 rounded-full h-3"><div class="' + color + ' h-3 rounded-full" style="width: ' + pct + '%"></div></div>' +
+                        alert + '</div>';
                 }).join('');
             }
 

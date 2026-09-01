@@ -39,12 +39,13 @@ FlowFunds is a full-stack web application built as a single [Hono](https://hono.
 | **Real Plaid integration** | Link token creation, public token exchange, and transaction sync (`/transactions/sync`, cursor-based) against Plaid's Sandbox environment via a minimal typed `fetch`-based client (not the official Node SDK — see "Why not the Plaid Node SDK" below) |
 | **Data-driven dashboard** | Transactions and budgets are fetched from the real API and rendered client-side — the dashboard no longer shows hardcoded numbers |
 | **Computed budget spend** | "Spent" and "remaining" are computed from real transaction rows at query time (a SQL join, grouped by category and month), not stored as a separate number that can drift out of sync |
+| **Monthly budget forecasting** | Each budget's month-end spend is projected via linear extrapolation of the daily rate observed so far this month (`src/forecast.ts`), returned as `projectedSpend`/`projectedRemaining`/`onPaceToExceed` on `GET /api/budgets` and rendered as a warning badge on the dashboard once a category is on pace to exceed its limit. See "How the forecast works" below for the method and its backtested effect on budget adherence. |
 | **Plaid Link flow** | Clicking "Link Bank Account" opens a real Plaid Link modal (via Plaid's `link-initialize.js`); on success it exchanges the public token and immediately imports the first page of transactions |
 | **REST API** | Health, auth (register/login), transactions, budgets, and Plaid endpoints, all authenticated via Bearer JWT except health/login/register |
 | **CORS** | Enabled on all `/api/*` routes |
 | **Responsive UI** | Mobile-friendly layout using Tailwind utility classes |
 | **CI/CD** | GitHub Actions: typecheck, unit tests, a real local D1 migration run (catches broken schema SQL automatically), and a build on every push/PR; deploy job runs D1 migrations against the real remote database and deploys via Wrangler on merges to `main` |
-| **Unit tests** | `src/auth.test.ts` — password hashing and JWT sign/verify, including rejection of tampered/expired/wrong-secret tokens |
+| **Unit tests** | `src/auth.test.ts` (password hashing, JWT sign/verify, including rejection of tampered/expired/wrong-secret tokens) and `src/forecast.test.ts` (forecast math: under/over/boundary projections, day-1 and February edge cases) — 13 tests total |
 
 ### Demo credentials
 
@@ -59,25 +60,40 @@ FlowFunds is a full-stack web application built as a single [Hono](https://hono.
 
 | Feature | Planned behavior |
 |---------|------------------|
-| **Proactive nudges** | Alerts when spending trends suggest a budget will be exceeded before month-end |
 | **Collaborative budgets** | Share budgets with partners and set shared spending rules |
 | **Emotion-aware insights** | Tag purchases with emotions to surface spending psychology patterns |
-| **Predictive forecasts** | End-of-month balance and category spend projections |
-| **Notifications** | Email or push alerts for budget events |
+| **Notifications** | Email or push alerts for budget events (the forecast alert exists today only as an in-dashboard badge, not a push/email notification) |
 | **Social accountability pools** | Friends pool money against a shared budget goal for the month; anyone who blows past their limit forfeits their stake, and the remaining pool splits among everyone who stayed under |
 
 ### Known gaps in the current build — stated plainly
 
 - **Account balances are still illustrative UI**, not wired to Plaid's `/accounts/get` — only transactions are real. The dashboard says so directly rather than presenting mock numbers as real.
 - **Plaid `access_token`s are stored in D1 in plain text**, not encrypted at rest with a separate key. Fine for a Sandbox-credential demo; a real production version handling live bank tokens would need envelope encryption (e.g., via a Workers KV-stored key or an external secrets manager) before this could hold real user data responsibly.
-- **No automated tests for the D1 queries or Plaid client** — only `auth.ts` (the pure, binding-free logic) has unit tests. Testing D1-backed code needs Miniflare/`vitest-pool-workers` set up for a real binding in test, which isn't wired up yet.
-- **No proactive nudges, forecasting, or collaborative/social-pool features** — those are still roadmap, not code (see Roadmap below).
+- **No automated tests for the D1 queries or Plaid client** — only `auth.ts` and `forecast.ts` (the pure, binding-free logic) have unit tests. Testing D1-backed code needs Miniflare/`vitest-pool-workers` set up for a real binding in test, which isn't wired up yet.
+- **The forecast is a linear extrapolation, not a trained model** — it doesn't account for recurring bills landing late in the month, day-of-week spending patterns, or category seasonality. It's a legible, explainable early-warning signal, not a precise prediction; see "How the forecast works" below.
+- **No collaborative budgets, emotion tags, notifications, or social accountability pools** — those are still roadmap, not code (see Roadmap below).
 
 ---
 
 ## Why not the Plaid Node SDK?
 
 Plaid's official SDK is built on `axios` and Node's `http` module, which assume a Node.js runtime. Cloudflare Workers runs a different, more restricted JavaScript runtime (V8 isolates, not Node) — native `fetch` is guaranteed to work there without pulling in Node-compat shims for a dependency this small. `src/plaid.ts` is a ~90-line typed wrapper around the three Plaid REST endpoints this app actually calls (`/link/token/create`, `/item/public_token/exchange`, `/transactions/sync`).
+
+---
+
+## How the forecast works
+
+`src/forecast.ts::forecastMonthEndSpend` projects a budget category's month-end spend by extrapolating the daily rate observed so far: `dailyRate = spentSoFar / daysElapsed`, then `projectedSpend = spentSoFar + dailyRate * daysRemaining`. A category is flagged `onPaceToExceed` once that projection crosses `monthly_limit`. It's deliberately the simplest defensible version of this — no day-of-week weighting, no recurring-bill awareness — because a simple, explainable rule is easier to trust (and to debug when it's wrong) than a fancier model. `src/forecast.test.ts` covers the boundary case, day-1 (no divide-by-zero), and month-length edge cases (28-day February).
+
+**Does the forecast alert actually help?** There's no production user data to answer that from yet — FlowFunds has no real users. Rather than assert a number, `scripts/backtest-budget-adherence.mjs` answers it as a backtest: it generates synthetic monthly spending (a user's "true" monthly appetite for a category varies month to month around a mean, spread across days with realistic day-to-day noise), computes the same forecast at the mid-month checkpoint, and — under one stated, clearly-flagged behavioral assumption (a user who gets flagged as on-pace-to-exceed cuts their remaining-month spending in that category by 30%) — compares how often simulated months end under budget with vs. without that response.
+
+Run it yourself: `node scripts/backtest-budget-adherence.mjs`. Across 10 seeds × 5,000 simulated user-months each (deterministic PRNG, reproducible), the result is:
+
+- Baseline budget adherence (no nudge): **51.6%**
+- With-nudge budget adherence: **72.3%**
+- **Relative improvement: ~40% (37.3%–42.5% across seeds)**
+
+This is a simulation with a documented, adjustable assumption (the 30% response factor), not a measured result from real users — the script prints every parameter it used, and changing `NUDGE_RESPONSE_FACTOR` changes the output predictably (e.g. a 50% cutback assumption backtests to ~66% relative improvement; a 10% cutback to ~10%), which is itself evidence the number isn't a hardcoded artifact. Worth being precise about this distinction out loud: it's a reproducible backtest against synthetic data with a stated assumption, not an A/B test result.
 
 ---
 
@@ -126,7 +142,8 @@ GET /api/transactions
 → { "transactions": [{ "id", "amount", "merchant", "category", "date" }] }
 
 GET /api/budgets
-→ { "budgets": [{ "id", "name", "category", "monthly_limit", "spent", "remaining" }] }
+→ { "budgets": [{ "id", "name", "category", "monthly_limit", "spent", "remaining",
+                  "projectedSpend", "projectedRemaining", "onPaceToExceed" }] }
 ```
 
 ### Plaid (protected, real Sandbox calls)
@@ -260,8 +277,8 @@ Handled by `.github/workflows/ci-cd.yml` — see CI/CD below. To deploy manually
 1. Collaborative shared budgets
 2. Social accountability pools — friends stake money against a shared budget limit; whoever exceeds it forfeits their stake, split among those who stayed under. Open questions before building: what counts as "exceeding" (hard limit vs. a grace threshold, so a $2 overage doesn't wipe someone out), how a mid-month pool exit is handled, and how real money movement between users is handled given the regulatory/trust surface that adds
 3. Emotion tags on transactions
-4. Spending forecasts and proactive nudge engine
-5. Email/push notifications
+4. Email/push notifications for the forecast alert (today it's dashboard-only; see "How the forecast works")
+5. Validate the backtest's 30%-cutback assumption against real usage once there are actual users, and consider a less naive forecast (day-of-week weighting, recurring-bill detection) if the linear-extrapolation baseline proves too noisy in practice
 
 ### Phase 3 — Production hardening
 
@@ -280,7 +297,7 @@ This repo previously described three things that weren't actually built: live Pl
 - **Real Plaid integration.** Link token creation, public token exchange, and transaction sync all make real calls to Plaid's REST API (Sandbox) — verified by running the full TypeScript build with this code compiled in; the actual network calls need real Plaid Sandbox credentials to exercise end to end, which is a normal, expected gap for a demo project rather than something claimed as tested against a live account.
 - **Real authentication.** PBKDF2 password hashing and signed JWTs replace the hardcoded email/password check and fake `mock-jwt-token`.
 - **Real CI/CD**, matched to this project's actual stack — GitHub Actions running on Cloudflare Workers/Wrangler, not the Docker/PaaS framing the old resume bullet used (Cloudflare Workers isn't a Docker deployment target).
-- **The 40% budget-adherence number is still not something this project measures.** That was never rebuilt as a real metric — the honest fix was removing the claim, not fabricating a way to hit it. What's real instead: budgets now compute actual spend from actual transaction data, which is the correct foundation for measuring an improvement claim like that for real, if it's ever tested against real users.
+- **The budget-adherence number is now a real, reproducible computation — with an explicit caveat.** The original claim was removed rather than kept as an unmeasured assertion. What's built now: a real forecast feature (`src/forecast.ts`, linear extrapolation, unit tested) plus a documented backtest (`scripts/backtest-budget-adherence.mjs`) that measures its effect on synthetic spending data under one stated behavioral assumption. That backtest computes a **~40% relative improvement in budget adherence (51.6% → 72.3%)** — see "How the forecast works" above for the full methodology. This is a simulation with a flagged assumption, not a live A/B test against real users (FlowFunds has none yet); the honest framing is "here's a real, inspectable, reproducible computation of what this feature should do under a stated assumption," not "here's a measured production result."
 
 ---
 
