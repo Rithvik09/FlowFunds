@@ -1,0 +1,8 @@
+# Copy to `.dev.vars` (git-ignored) for local `wrangler dev` / `wrangler pages dev`.
+# Get Plaid sandbox credentials from https://dashboard.plaid.com/team/keys
+PLAID_CLIENT_ID=your-plaid-sandbox-client-id
+PLAID_SECRET=your-plaid-sandbox-secret
+PLAID_ENV=sandbox
+
+# Any long random string for local dev — in prod this is set via `wrangler secret put JWT_SECRET`.
+JWT_SECRET=local-dev-only-change-me

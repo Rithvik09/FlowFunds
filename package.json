@@ -10,7 +10,11 @@
     "build": "vite build",
     "preview": "wrangler pages dev dist",
     "deploy": "npm run build && wrangler pages deploy dist",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply flowfunds-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply flowfunds-db --remote"
   },
   "dependencies": {
     "hono": "^4.0.0"
@@ -19,6 +23,7 @@
     "@cloudflare/workers-types": "4.20250705.0",
     "@hono/vite-cloudflare-pages": "^0.4.2",
     "vite": "^5.0.0",
+    "vitest": "^1.6.0",
     "wrangler": "^3.78.0",
     "typescript": "^5.0.0"
   }

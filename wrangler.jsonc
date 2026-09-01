@@ -2,5 +2,20 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "flowfunds",
   "compatibility_date": "2024-01-01",
-  "pages_build_output_dir": "./dist"
+  "pages_build_output_dir": "./dist",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "flowfunds-db",
+      // Placeholder — replace with the real id after `wrangler d1 create flowfunds-db`.
+      // CI/CD reads this file as-is for `--local` migrations (no id needed there); a real
+      // remote deploy needs this filled in first.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+  // PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENV, and JWT_SECRET are NOT set here — they're
+  // secrets, not vars, so they don't belong in a file that gets committed. Set them with
+  // `wrangler secret put <NAME>` (or in CI/CD via the deploy workflow's own secrets).
+  // For local dev, put them in a git-ignored `.dev.vars` file — see `.dev.vars.example`.
 }
