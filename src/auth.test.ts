@@ -54,3 +54,20 @@ describe('JWT sign/verify', () => {
     expect(payload).toBeNull()
   })
 })
+
+describe('JWT expiry validation', () => {
+  const secret = 'test-secret'
+
+  // `exp` is typed `number` on JwtPayload, but nothing validates it on the decode
+  // path. A payload with no `exp` yields `undefined * 1000 === NaN`, and
+  // `NaN < Date.now()` is false — so the expiry check silently passes.
+  it('rejects a validly-signed token whose exp is missing', async () => {
+    const token = await signJwt({ sub: 'user-1', email: 'a@b.com' } as any, secret)
+    await expect(verifyJwt(token, secret)).resolves.toBeNull()
+  })
+
+  it('rejects a validly-signed token whose exp is non-numeric', async () => {
+    const token = await signJwt({ sub: 'user-1', email: 'a@b.com', exp: 'tomorrow' } as any, secret)
+    await expect(verifyJwt(token, secret)).resolves.toBeNull()
+  })
+})
