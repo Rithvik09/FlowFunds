@@ -25,10 +25,20 @@ export async function hashPassword(password: string): Promise<{ hash: string; sa
   return { hash: toHex(hash), salt: toHex(saltBytes.buffer as ArrayBuffer) };
 }
 
+// Compares two equal-length hex digests without short-circuiting on the first
+// differing character. Length is not secret here (both are fixed-width SHA-256
+// digests), so returning early on a length mismatch leaks nothing.
+function timingSafeEqualHex(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 export async function verifyPassword(password: string, hash: string, salt: string): Promise<boolean> {
   const saltBytes = fromHex(salt);
   const derived = await derive(password, saltBytes);
-  return toHex(derived) === hash;
+  return timingSafeEqualHex(toHex(derived), hash);
 }
 
 async function derive(password: string, salt: Uint8Array): Promise<ArrayBuffer> {
@@ -69,6 +79,22 @@ async function hmacSha256(secret: string, message: string): Promise<ArrayBuffer>
   return crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
 }
 
+function base64UrlDecodeToBytes(value: string): Uint8Array {
+  const binary = base64UrlDecode(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+// crypto.subtle.verify does the signature comparison internally in constant time,
+// which is why this is preferred over recomputing the HMAC and comparing strings.
+async function hmacVerify(secret: string, message: string, signature: Uint8Array): Promise<boolean> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, [
+    'verify',
+  ]);
+  return crypto.subtle.verify('HMAC', key, signature as BufferSource, new TextEncoder().encode(message));
+}
+
 export async function signJwt(payload: JwtPayload, secret: string): Promise<string> {
   const header = { alg: 'HS256', typ: 'JWT' };
   const encodedHeader = base64UrlEncode(JSON.stringify(header));
@@ -82,10 +108,19 @@ export async function verifyJwt(token: string, secret: string): Promise<JwtPaylo
   if (parts.length !== 3) return null;
   const [encodedHeader, encodedPayload, encodedSignature] = parts;
 
-  const expectedSignature = base64UrlEncode(await hmacSha256(secret, `${encodedHeader}.${encodedPayload}`));
-  if (expectedSignature !== encodedSignature) return null;
+  let payload: JwtPayload;
+  try {
+    const valid = await hmacVerify(secret, `${encodedHeader}.${encodedPayload}`, base64UrlDecodeToBytes(encodedSignature));
+    if (!valid) return null;
+    payload = JSON.parse(base64UrlDecode(encodedPayload)) as JwtPayload;
+  } catch {
+    return null; // malformed base64 or JSON — fail closed rather than throwing
+  }
 
-  const payload = JSON.parse(base64UrlDecode(encodedPayload)) as JwtPayload;
+  // `exp` is typed `number`, but the decode path receives whatever was signed.
+  // Without this check a payload lacking `exp` gives NaN, and `NaN < Date.now()`
+  // is false — which would read as "not expired" and never expire.
+  if (typeof payload?.exp !== 'number' || !Number.isFinite(payload.exp)) return null;
   if (payload.exp * 1000 < Date.now()) return null; // expired
 
   return payload;

@@ -15,6 +15,7 @@ import {
   insertPlaidTransactions,
 } from './db'
 import { createLinkToken, exchangePublicToken, syncTransactions } from './plaid'
+import { escapeHtml } from './escape'
 
 interface Variables {
   userId: string
@@ -314,6 +315,9 @@ app.get('/', (c) => {
         </footer>
 
         <script>
+            // Shared with the server via src/escape.ts — embedded rather than duplicated
+            // so the tested implementation and the shipped one cannot drift apart.
+            const escapeHtml = ${escapeHtml.toString()};
             const AUTH_TOKEN_KEY = 'flowfunds_token';
 
             function showLogin() {
@@ -385,8 +389,8 @@ app.get('/', (c) => {
                 }
                 el.innerHTML = transactions.slice(0, 5).map(function (t) {
                     return '<div class="flex justify-between items-center p-3 bg-gray-50 rounded">' +
-                        '<div><div class="font-semibold">' + t.merchant + '</div>' +
-                        '<div class="text-sm text-gray-600">' + t.date + ' • ' + t.category + '</div></div>' +
+                        '<div><div class="font-semibold">' + escapeHtml(t.merchant) + '</div>' +
+                        '<div class="text-sm text-gray-600">' + escapeHtml(t.date) + ' • ' + escapeHtml(t.category) + '</div></div>' +
                         '<div class="text-red-600 font-bold">-$' + Number(t.amount).toFixed(2) + '</div></div>';
                 }).join('');
             }
@@ -406,7 +410,7 @@ app.get('/', (c) => {
                           '$' + Math.abs(b.projectedRemaining).toFixed(2) + ' over budget</div>'
                         : '<div class="text-xs text-gray-500 mt-1">Projected month-end: $' + b.projectedSpend.toFixed(2) + '</div>';
                     return '<div><div class="flex justify-between mb-2">' +
-                        '<span class="font-semibold">' + b.name + '</span>' +
+                        '<span class="font-semibold">' + escapeHtml(b.name) + '</span>' +
                         '<span class="text-sm text-gray-600">$' + b.spent.toFixed(2) + ' / $' + b.monthly_limit.toFixed(2) + '</span></div>' +
                         '<div class="w-full bg-gray-200 rounded-full h-3"><div class="' + color + ' h-3 rounded-full" style="width: ' + pct + '%"></div></div>' +
                         alert + '</div>';
